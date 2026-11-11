@@ -5,4 +5,6 @@ export { hitsInText, hitsInFiles, urlsInFiles, judgeAddresses, pyStrings, pyHits
 export { codeVars, codeVarsOfFiles, isRequired, judgeEnv, DEFAULT_IGNORE } from './env.mjs'
 export { bundleVerdicts, readEnvFile, defaultChunksDir, MIN_SECRET_LEN } from './bundle-secrets.mjs'
 export { accessVerdicts, accessFiles, defaultAppDir } from './access.mjs'
+export { iconVerdicts } from './icons.mjs'
+export { countLiterals, judgeLiterals, nextBaseline, gitRenames, totalOf } from './literals.mjs'
 export { loadConfig, CONFIG_FILE } from './config.mjs'

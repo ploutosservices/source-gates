@@ -4,8 +4,13 @@
 //   env             every environment variable the code reads is declared
 //   bundle-secrets  after `next build`: no secret in the client bundle, no declared name inlined
 //   access          every Next.js App Router entry checks a permission, or is declared
+//   icons           every icon a React tree renders is inside a tooltip
+//   literals        numbers and lists written into the named files may only fall (--write-baseline to record a fall)
 // Exit 0 clean, 1 on a finding, 2 when it cannot run.
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { iconVerdicts } from '../src/icons.mjs'
+import { countLiterals, judgeLiterals, nextBaseline, gitRenames, totalOf } from '../src/literals.mjs'
 import { loadConfig } from '../src/config.mjs'
 import { fileSet, isSourceFile, DEFAULT_TEST_FILE } from '../src/files.mjs'
 import { hitsInFiles, pyHits, judgeAddresses } from '../src/addresses.mjs'
@@ -13,17 +18,18 @@ import { codeVars, judgeEnv, DEFAULT_IGNORE } from '../src/env.mjs'
 import { bundleVerdicts } from '../src/bundle-secrets.mjs'
 import { accessVerdicts, accessFiles, defaultAppDir } from '../src/access.mjs'
 
-const USAGE = `usage: source-gates <addresses|env|bundle-secrets|access> [--list] [--root <dir>] [--config <file, absolute or relative to the root>]`
-const COMMANDS = new Set(['addresses', 'env', 'bundle-secrets', 'access'])
-const LISTS = new Set(['addresses', 'access'])
+const USAGE = `usage: source-gates <addresses|env|bundle-secrets|access|icons|literals> [--list] [--write-baseline] [--root <dir>] [--config <file, absolute or relative to the root>]`
+const COMMANDS = new Set(['addresses', 'env', 'bundle-secrets', 'access', 'icons', 'literals'])
+const LISTS = new Set(['addresses', 'access', 'icons', 'literals'])
 
 function parseArgs(argv) {
   const [command, ...rest] = argv
   if (!COMMANDS.has(command)) return { error: command ? `unknown command: ${command}` : 'no command' }
-  const out = { command, list: false, root: process.cwd(), config: undefined }
+  const out = { command, list: false, writeBaseline: false, root: process.cwd(), config: undefined }
   for (let i = 0; i < rest.length; i++) {
     const a = rest[i]
     if (a === '--list' && LISTS.has(command)) out.list = true
+    else if (a === '--write-baseline' && command === 'literals') out.writeBaseline = true
     else if ((a === '--root' || a === '--config') && rest[i + 1] && !rest[i + 1].startsWith('--')) out[a.slice(2)] = rest[++i]
     else return { error: `unknown or incomplete argument for ${command}: ${a}` }
   }
@@ -137,6 +143,63 @@ function access(root, cfg, list) {
   return bad ? 1 : 0
 }
 
+function icons(root, cfg, list) {
+  const c = cfg.icons ?? {}
+  const files = fileSet(root, {
+    include: c.include ?? ['src'],
+    exclude: c.exclude ?? [cfg.testFile ?? DEFAULT_TEST_FILE],
+    keep: n => /\.(tsx|jsx)$/.test(n),
+  })
+  const v = iconVerdicts(root, files, c)
+  if (list) {
+    console.log(`${v.icons} icon element(s); labelling themselves: ${v.selfLabelled.join(', ') || 'none'}`)
+    for (const b of v.bare) console.log(`BARE  ${b.file}:${b.line}  <${b.tag}>`)
+    return 0
+  }
+  const wrappers = [...(c.wrappers ?? ['Tooltip'])].map(w => `<${w}>`).join(' or ')
+  const bad = [
+    say(`Icons not inside ${wrappers} — wrap each and say what the icon means, e.g. "saved, awaiting review", not what it looks like, e.g. "green circle":`,
+      v.bare.map(b => `${b.file}:${b.line}  <${b.tag}>`)),
+    say('An exemption for a file that renders no icon — remove it:', v.unusedExempt),
+  ].some(Boolean)
+  if (bad && c.message) console.error(`\n${c.message}`)
+  console.log(`icons: ${v.icons} icon element(s), ${v.bare.length} without ${wrappers}`)
+  return bad ? 1 : 0
+}
+
+function literals(root, cfg, list, writeBaseline) {
+  const c = cfg.literals ?? {}
+  const files = fileSet(root, {
+    include: c.include ?? ['src'],
+    exclude: c.exclude ?? [cfg.testFile ?? DEFAULT_TEST_FILE],
+    keep: isSourceFile,
+  }).map(f => f.slice(root.length + 1).split('\\').join('/'))
+  const baselinePath = join(root, c.baseline ?? 'source-gates.literals.json')
+  const baseline = existsSync(baselinePath) ? JSON.parse(readFileSync(baselinePath, 'utf8')) : {}
+  const counts = countLiterals(root, files, { allowed: c.allowed })
+  if (list) {
+    for (const [f, n] of Object.entries(counts)) if (totalOf(n) > 0) console.log(`${totalOf(n)}\t${f}`)
+    return 0
+  }
+  if (writeBaseline) {
+    const { next, raised } = nextBaseline(counts, baseline, gitRenames(root))
+    if (say('The baseline is never raised. These grew:', raised)) return 1
+    writeFileSync(baselinePath, JSON.stringify(next, null, 2) + '\n')
+    console.log(`literals: baseline written — ${Object.keys(next).length} files, ${Object.values(next).reduce((a, b) => a + b, 0)} literals`)
+    return 0
+  }
+  const { grew, fell, gone } = judgeLiterals(counts, baseline)
+  const bad = [
+    say('A number or list was written into these files. Move it to a module that names it, or for layout to your styles:', grew),
+    say('A count fell — record the gain in this change (source-gates literals --write-baseline):', fell),
+    say('The baseline names files that are gone — a rename carries its count (--write-baseline reads git\'s renames):', gone),
+  ].some(Boolean)
+  if (bad && c.message) console.error(`\n${c.message}`)
+  const n = Object.values(counts).reduce((a, x) => a + totalOf(x), 0)
+  console.log(`literals: ${n} literals in ${Object.keys(counts).length} files, ${grew.length} grown`)
+  return bad ? 1 : 0
+}
+
 async function main() {
   const a = parseArgs(process.argv.slice(2))
   if (a.error) { console.error(`${a.error}\n${USAGE}`); return 2 }
@@ -146,6 +209,8 @@ async function main() {
     case 'env': return env(a.root, cfg)
     case 'bundle-secrets': return bundleSecrets(a.root, cfg)
     case 'access': return access(a.root, cfg, a.list)
+    case 'icons': return icons(a.root, cfg, a.list)
+    case 'literals': return literals(a.root, cfg, a.list, a.writeBaseline)
   }
 }
 

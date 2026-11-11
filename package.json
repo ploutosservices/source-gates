@@ -1,7 +1,7 @@
 {
   "name": "@ploutosservices/source-gates",
-  "version": "0.1.2",
-  "description": "Build gates that read your source as a syntax tree: no hard-coded addresses, every environment read declared, no secret in a Next.js client bundle, every Next.js entry checks a permission.",
+  "version": "0.2.0",
+  "description": "Build gates that read your source as a syntax tree: no hard-coded addresses, every environment read declared, no secret in a Next.js client bundle, every Next.js entry checks a permission, every icon inside a tooltip, hard-coded numbers only ever falling.",
   "license": "Apache-2.0",
   "author": "Ploutos Services",
   "type": "module",

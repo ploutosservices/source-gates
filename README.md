@@ -9,6 +9,8 @@ its syntactic context (`jsx:href`, `jsx:xmlns`, `prop:url`) for review.
 | `env` | the code reads an environment variable you have not declared | any JavaScript or TypeScript project |
 | `bundle-secrets` | after `next build`: a secret's value is in the client bundle, or the build inlined a variable you read at runtime | a Next.js build |
 | `access` | a page, route handler or server action checks no permission and is not declared as checking none | a Next.js App Router project |
+| `icons` | an icon a React tree renders is not inside a tooltip | any React (JSX/TSX) project |
+| `literals` | a file gains a hard-coded number or list (a ratchet: today's are counted, not refused) | any JavaScript or TypeScript project |
 
 Exceptions live in a short, reviewable list (with a reason for each when you use a `Map` or an object). A stale
 exception silently permits the next mistake, so `addresses` fails on a pin that no longer matches a literal, and
@@ -24,7 +26,7 @@ npx source-gates addresses --list # every hit and its verdict
 Once installed, the command is `source-gates`. (Versions up to 0.1.1 were published unscoped as `source-gates`, which
 is deprecated.)
 
-Flags: `--list` (`addresses` and `access` only), `--root <dir>` (default: the current directory), `--config <file>`
+Flags: `--list` (`addresses`, `access`, `icons`, `literals`), `--write-baseline` (`literals` only), `--root <dir>` (default: the current directory), `--config <file>`
 (absolute, or relative to the root; default `source-gates.config.mjs`).
 
 It needs Node 22.17 or later. It parses with TypeScript 7's native parser, pinned in its own dependencies, so your
@@ -157,6 +159,32 @@ directory), `extraAnswer({ file, root, sources })` returning `{ reason, names } 
 In the library, `accessVerdicts` returns each entry with `how`: `checks`, `layout <file>`, `declared: <reason>`, the
 `extraAnswer` reason, or `<own> · <reason>` when the entry passes on its own (checks, layout or declared) and
 `extraAnswer` answers too; `null` when it checks nothing.
+
+### icons
+
+Configuration key: `icons`. An icon with no text label means nothing to a reader who does not already know it, so
+every icon says what it means on hover. An **icon** is a JSX element whose tag's last name matches `pattern` (default `Icon$`: `<CheckIcon>`,
+`<Lucide.XIcon>`); icons passed as values (`icon={XIcon}`) are judged where they are rendered. It is **covered** when
+a JSX ancestor in the same file is one of the `wrappers` (default `Tooltip`), or when its component is defined in the
+scanned files with a wrapper in its own body — an icon that labels itself is covered at every call site. A `title`
+attribute does not count: it appears after a browser delay, in the browser's style, and never on touch.
+
+Keys: `include` (default `src`), `exclude` (default: test files), `pattern`, `wrappers`, `exempt` (`{ file: reason }`;
+an exemption for a file that renders no icon fails), `message`.
+
+### literals
+
+Configuration key: `literals`. A business number (a fee, a cap, a cut-off) written into a page instead of read from
+one module is a decision nobody reviews. Refusing every literal at once refuses nothing in practice, so this is a
+ratchet: per file, the numeric literals not in `allowed` (default 0, 1, 2) plus the array literals whose every element
+is a literal. A file's count must equal its baseline: growth fails, a fall not recorded fails, a new file starts at
+zero, and a baseline entry for a file that is gone fails. `source-gates literals --write-baseline` records the counts,
+carries the count of a file whose rename is staged (`git mv`, or `git add` of the new path) through git's rename
+detection when the root is the repository's top level, and refuses to raise any count once a baseline exists (the
+first run records today's counts).
+
+Keys: `include` (default `src`), `exclude` (default: test files), `allowed`, `baseline` (a JSON file, default
+`source-gates.literals.json`), `message`.
 
 ## Library
 

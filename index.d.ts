@@ -107,6 +107,24 @@ export function accessVerdicts(root: string, files: string[], config: AccessConf
   problems: string[]
 }
 
+// ── icons ──
+export function iconVerdicts(root: string, files: string[], config?: {
+  pattern?: RegExp | string
+  wrappers?: Iterable<string>
+  exempt?: Map<string, string> | Record<string, string>
+}): { icons: number; bare: { file: string; line: number; tag: string }[]; selfLabelled: string[]; unusedExempt: string[] }
+
+// ── literals ──
+export type LiteralCount = { numbers: number; lists: number }
+export function countLiterals(root: string, files: string[], opts?: { allowed?: Iterable<number> }): Record<string, LiteralCount>
+export function totalOf(c: LiteralCount): number
+export function judgeLiterals(counts: Record<string, LiteralCount>, baseline: Record<string, number>): { grew: string[]; fell: string[]; gone: string[] }
+export function gitRenames(root: string): Map<string, string>
+export function nextBaseline(counts: Record<string, LiteralCount>, baseline: Record<string, number>, renames?: Map<string, string>): {
+  next: Record<string, number>
+  raised: string[]
+}
+
 // ── configuration ──
 export const CONFIG_FILE: string
 export type Config = {
@@ -125,5 +143,7 @@ export type Config = {
   env?: { declared: Declaration[]; ignore?: Iterable<string>; include?: string[]; requiredHelpers?: string[] }
   bundleSecrets?: { declared?: Declaration[]; envFile?: string; staticDir?: string; chunksDir?: string }
   access?: AccessConfig
+  icons?: { include?: string[]; exclude?: (RegExp | string)[]; pattern?: RegExp | string; wrappers?: string[]; exempt?: Record<string, string>; message?: string }
+  literals?: { include?: string[]; exclude?: (RegExp | string)[]; allowed?: number[]; baseline?: string; message?: string }
 }
 export function loadConfig(root: string, file?: string): Promise<Config>
