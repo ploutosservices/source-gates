@@ -1,0 +1,38 @@
+name: publish
+
+# Publishes to npm when a tag v<version> is pushed, by npm trusted publishing: npm hands this job a short-lived
+# credential for this repository and this workflow, so no token is stored anywhere.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: The tag names the package's version
+        run: test "v$(node -p "require('./package.json').version")" = "$GITHUB_REF_NAME"
+
+      - name: Install
+        run: npm ci
+
+      - name: Tests
+        run: npm test
+
+      - name: No address in this package's own source
+        run: npm run check-addresses
+
+      # Trusted publishing needs npm 11.5.1 or later.
+      - name: Publish
+        run: npx -y npm@12 publish --access public
