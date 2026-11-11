@@ -16,10 +16,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # No registry-url here: it writes an .npmrc whose token placeholder npm would send instead of asking for the
+      # trusted-publishing credential, and the publish answers 404.
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          registry-url: https://registry.npmjs.org
 
       - name: The tag names the package's version
         run: test "v$(node -p "require('./package.json').version")" = "$GITHUB_REF_NAME"
