@@ -16,10 +16,13 @@ exception silently permits the next mistake, so `addresses` fails on a pin that 
 declaration nothing reads. Allow-lists of hosts and addresses are not checked for staleness.
 
 ```sh
-npm install --save-dev source-gates
+npm install --save-dev @ploutosservices/source-gates
 npx source-gates addresses        # exit 0 clean, 1 on a finding, 2 when it cannot run (any error)
 npx source-gates addresses --list # every hit and its verdict
 ```
+
+Once installed, the command is `source-gates`. (Versions up to 0.1.1 were published unscoped as `source-gates`, which
+is deprecated.)
 
 Flags: `--list` (`addresses` and `access` only), `--root <dir>` (default: the current directory), `--config <file>`
 (absolute, or relative to the root; default `source-gates.config.mjs`).
@@ -158,7 +161,7 @@ In the library, `accessVerdicts` returns each entry with `how`: `checks`, `layou
 ## Library
 
 ```js
-import { hitsInFiles, judgeAddresses, codeVars, judgeEnv, accessVerdicts } from 'source-gates'
+import { hitsInFiles, judgeAddresses, codeVars, judgeEnv, accessVerdicts } from '@ploutosservices/source-gates'
 ```
 
 Every judging function takes its lists as arguments; see `index.d.ts`. A top-level `testFile` key (a regular
