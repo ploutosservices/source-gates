@@ -36,4 +36,4 @@ jobs:
 
       # Trusted publishing needs npm 11.5.1 or later.
       - name: Publish
-        run: npx -y npm@12 publish --access public
+        run: npx -y npm@12 publish --access public --loglevel verbose
