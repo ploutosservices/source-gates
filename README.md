@@ -11,11 +11,14 @@ its syntactic context (`jsx:href`, `jsx:xmlns`, `prop:url`) for review.
 | `access` | a page, route handler or server action checks no permission and is not declared as checking none | a Next.js App Router project |
 | `icons` | an icon a React tree renders is not inside a tooltip | any React (JSX/TSX) project |
 | `literals` | a file gains a hard-coded number or list (a ratchet: today's are counted, not refused) | any JavaScript or TypeScript project |
+| `imports` | a file imports a module that only certain files may import (a layer boundary) | any JavaScript or TypeScript project |
+| `patterns` | a file gains a line matching an expression you are retiring (a ratchet; at zero, a ban) | any text source (JavaScript and TypeScript by default; set `files` for others) |
 
 Exceptions live in a short, reviewable list (with a reason for each when you use a `Map` or an object). A stale
-exception silently permits the next mistake, so `addresses` fails on a pin that no longer matches a literal, and
-`access` fails on a pin, declaration or forbidden-name allowance that no longer matches; `env` warns about a
-declaration nothing reads. Allow-lists of hosts and addresses are not checked for staleness.
+exception silently permits the next mistake, so `addresses` and `imports` fail on a pin that no longer matches, and
+`access` fails on a pin, declaration or forbidden-name allowance that no longer matches, `icons` and `patterns` fail on
+an exemption whose file renders nothing or is gone; `env` warns about a declaration nothing reads. Allow-lists of hosts
+and addresses are not checked for staleness.
 
 ```sh
 npm install --save-dev @ploutosservices/source-gates
@@ -26,7 +29,8 @@ npx source-gates addresses --list # every hit and its verdict
 Once installed, the command is `source-gates`. (Versions up to 0.1.1 were published unscoped as `source-gates`, which
 is deprecated.)
 
-Flags: `--list` (`addresses`, `access`, `icons`, `literals`), `--write-baseline` (`literals` only), `--root <dir>` (default: the current directory), `--config <file>`
+Flags: `--list` (`addresses`, `access`, `icons`, `literals`, `imports`, `patterns`), `--write-baseline` (`literals`,
+`patterns`), `--root <dir>` (default: the current directory), `--config <file>`
 (absolute, or relative to the root; default `source-gates.config.mjs`).
 
 It needs Node 22.17 or later. It parses with TypeScript 7's native parser, pinned in its own dependencies, so your
@@ -185,6 +189,63 @@ first run records today's counts).
 
 Keys: `include` (default `src`), `exclude` (default: test files), `allowed`, `baseline` (a JSON file, default
 `source-gates.literals.json`), `message`.
+
+### imports
+
+Configuration key: `imports`. A layer boundary — only the data layer imports the database client, only one module
+imports a vendor's SDK — holds only while nothing outside the layer imports what is behind it. Each rule names the
+modules and the files that may import them; any other file that imports one by value fails.
+
+```js
+imports: {
+  aliases: { '@/': 'src/' },
+  rules: [{ name: 'database', modules: ['pg', 'src/lib/db'], allow: ['src/lib/**', 'scripts/**'] }],
+}
+```
+
+A `modules` entry is a package name, which matches the package and its subpaths (`pg`, `pg/lib/client`), or a path
+relative to the root without extension (`src/lib/db`), which matches a relative or aliased specifier naming that file
+or its `index`. Resolution is by path alone; nothing is looked up on disk. `allow` holds globs on the path relative to
+the root. Counted: `import`, `export … from`, a bare `import '…'`, and `import('…')` or `require('…')` with a literal
+argument. Not seen: TypeScript's `import x = require('…')`, and `require` or `import()` given a template or a computed
+name. Not counted: `import type`, `export type`, and a named clause whose every binding is marked `type` — a type
+carries no code, and a change behind it already breaks your type check.
+
+Keys: `rules` (required: `{ name, modules, allow, message? }`), `aliases` (specifier prefix → directory relative to
+the root), `pinned` (`'<file>|<rule>'`, each with a reason when a `Map` or an object: a file allowed to break the rule
+for now; fails once the file no longer does), `include` (default `src`; a directory that does not exist is skipped,
+but if none exists the gate cannot run), `includeFiles`, `exclude` (default: test files), `message`. `--list` prints
+every import of a ruled module with its verdict.
+
+### patterns
+
+Configuration key: `patterns`. A construct you have decided to retire — a hand-written role check, a deprecated
+helper — is often easiest to name as text. This is a ratchet like `literals`: per rule and per file, the lines matching
+any of the rule's expressions. Growth fails, a fall not recorded fails, a new file starts at zero, a baseline entry for
+a file no longer counted (gone, exempt or excluded) fails, an exempt file that is gone fails, and a baseline entry for
+a rule the configuration no longer has fails. At a baseline of zero it is a ban. It reads text, not the syntax tree, so
+a matching line in a comment counts too. A `g` or `y` flag on an expression is ignored.
+
+```js
+patterns: {
+  rules: {
+    'role-checks': {
+      match: ["===\\s*['\"]admin['\"]", '\\bisAdmin\\b'],
+      include: ['src'],
+      exempt: ['src/lib/permissions.ts'],
+      message: 'use the permission check instead',
+    },
+  },
+}
+```
+
+Rule keys: `match` and `include` (both required; a directory that does not exist is skipped, but if none exists the
+gate cannot run), `files` (an expression a file's base name, not its path, must match; default every source
+extension), `exclude` (patterns on the relative path; default: test files), `exempt` (relative paths skipped),
+`message`. Top-level keys: `rules`, `baseline` (a JSON file shaped `{ rule: { file: count } }`, files above zero only;
+default `source-gates.patterns.json`), `message`. `--write-baseline` records the counts and carries the count of a file
+whose rename is staged, through git's rename detection, when the root is the repository's top level. Once the baseline
+holds a rule, it refuses to raise that rule's counts; a rule not yet in the baseline is recorded as it stands.
 
 ## Library
 

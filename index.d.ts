@@ -119,10 +119,45 @@ export type LiteralCount = { numbers: number; lists: number }
 export function countLiterals(root: string, files: string[], opts?: { allowed?: Iterable<number> }): Record<string, LiteralCount>
 export function totalOf(c: LiteralCount): number
 export function judgeLiterals(counts: Record<string, LiteralCount>, baseline: Record<string, number>): { grew: string[]; fell: string[]; gone: string[] }
-export function gitRenames(root: string): Map<string, string>
 export function nextBaseline(counts: Record<string, LiteralCount>, baseline: Record<string, number>, renames?: Map<string, string>): {
   next: Record<string, number>
   raised: string[]
+}
+
+// ── the ratchet (literals, patterns) ──
+export function gitRenames(root: string): Map<string, string>
+export function judgeRatchet<C = number>(counts: Record<string, C>, baseline: Record<string, number>, how?: {
+  total?: (c: C) => number
+  describe?: (file: string, count: C, was: number) => string
+}): { grew: string[]; fell: string[]; gone: string[] }
+export function nextRatchet<C = number>(counts: Record<string, C>, baseline: Record<string, number>, renames?: Map<string, string>, how?: {
+  total?: (c: C) => number
+  first?: boolean
+}): { next: Record<string, number>; raised: string[] }
+
+// ── imports ──
+export type ImportRule = { name: string; modules: string[]; allow: string[]; message?: string }
+export type ImportHit = { file: string; line: number; specifier: string; module: string; rule: string; verdict: 'allowed' | 'pinned' | 'refused' }
+/** `files` are absolute paths; each hit's `file` is relative to `root`. */
+export function importVerdicts(root: string, files: string[], opts: {
+  rules: ImportRule[]
+  aliases?: Record<string, string>
+  pinned?: Iterable<string> | Record<string, unknown> | Map<string, unknown>
+}): { hits: ImportHit[]; stale: string[] }
+
+// ── patterns ──
+export type PatternRule = {
+  match: (string | RegExp)[]
+  include: string[]
+  files?: string | RegExp
+  exclude?: (RegExp | string)[]
+  exempt?: string[]
+  message?: string
+}
+/** `files` are paths relative to `root`, and so are the keys returned. */
+export function countPatterns(root: string, files: string[], match: (string | RegExp)[]): {
+  counts: Record<string, number>
+  lines: Record<string, number[]>
 }
 
 // ── configuration ──
@@ -145,5 +180,15 @@ export type Config = {
   access?: AccessConfig
   icons?: { include?: string[]; exclude?: (RegExp | string)[]; pattern?: RegExp | string; wrappers?: string[]; exempt?: Record<string, string>; message?: string }
   literals?: { include?: string[]; exclude?: (RegExp | string)[]; allowed?: number[]; baseline?: string; message?: string }
+  imports?: {
+    rules: ImportRule[]
+    aliases?: Record<string, string>
+    pinned?: Iterable<string> | Record<string, unknown> | Map<string, unknown>
+    include?: string[]
+    includeFiles?: string[]
+    exclude?: (RegExp | string)[]
+    message?: string
+  }
+  patterns?: { rules: Record<string, PatternRule>; baseline?: string; message?: string }
 }
 export function loadConfig(root: string, file?: string): Promise<Config>

@@ -6,9 +6,9 @@
 // (default 0, 1, 2) plus the array literals whose every element is a literal. A file's count must equal its baseline:
 // growth fails; a fall must be written into the baseline in the same change, so the ratchet keeps what was gained; a
 // new file starts at zero; a baseline path that is gone fails (a rename carries its count, through git).
-import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 import { parseSources, is, SyntaxKind } from './parse.mjs'
+import { judgeRatchet, nextRatchet, gitRenames } from './ratchet.mjs'
 
 const isLiteral = e => is.isStringLiteral(e) || is.isNumericLiteral(e) || is.isNoSubstitutionTemplateLiteral(e) ||
   (is.isPrefixUnaryExpression(e) && e.operator === SyntaxKind.MinusToken && is.isNumericLiteral(e.operand))
@@ -45,36 +45,16 @@ export function countLiterals(root, files, { allowed = [0, 1, 2] } = {}) {
 export const totalOf = c => c.numbers + c.lists
 
 /** Judge counts against a baseline ({ file: total }): growth, falls not written down, new files above zero, gone paths. */
-export function judgeLiterals(counts, baseline) {
-  const grew = [], fell = [], gone = []
-  for (const [f, c] of Object.entries(counts)) {
-    const was = baseline[f] ?? 0
-    if (totalOf(c) > was) grew.push(`${f}: ${totalOf(c)} (${c.numbers} numbers, ${c.lists} lists), baseline ${was}`)
-    else if (totalOf(c) < was) fell.push(`${f}: ${totalOf(c)}, baseline ${was}`)
-  }
-  for (const f of Object.keys(baseline)) if (!(f in counts)) gone.push(f)
-  return { grew, fell, gone }
-}
+export const judgeLiterals = (counts, baseline) => judgeRatchet(counts, baseline, {
+  total: totalOf,
+  describe: (f, c, was) => `${f}: ${totalOf(c)} (${c.numbers} numbers, ${c.lists} lists), baseline ${was}`,
+})
 
-/** Staged and committed renames against HEAD (an untracked new path is not seen): new path → old path, relative to the
- *  repository's top level. Empty outside a git checkout. */
-export function gitRenames(root) {
-  try {
-    const out = execFileSync('git', ['diff', '-M', '--name-status', 'HEAD'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
-    return new Map(out.split('\n').filter(l => l.startsWith('R')).map(l => { const [, from, to] = l.split('\t'); return [to, from] }))
-  } catch { return new Map() }
-}
+export { gitRenames }
 
 /**
  * The next baseline from counts: every file above zero, a renamed file carrying its old path's count. Returns the
  * files whose count would rise, which a caller refuses (the baseline is never raised), unless the baseline is empty.
  */
-export function nextBaseline(counts, baseline, renames = new Map()) {
-  const next = {}, raised = []
-  for (const [f, c] of Object.entries(counts)) {
-    const was = baseline[f] ?? (renames.has(f) ? baseline[renames.get(f)] : undefined) ?? 0
-    if (totalOf(c) > was) raised.push(`${f}: ${totalOf(c)}, baseline ${was}`)
-    if (totalOf(c) > 0) next[f] = totalOf(c)
-  }
-  return { next, raised: Object.keys(baseline).length ? raised : [] }
-}
+export const nextBaseline = (counts, baseline, renames = new Map()) =>
+  nextRatchet(counts, baseline, renames, { total: totalOf, first: Object.keys(baseline).length === 0 })
