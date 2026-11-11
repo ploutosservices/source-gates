@@ -1,0 +1,51 @@
+{
+  "name": "source-gates",
+  "version": "0.1.0",
+  "description": "Build gates that read your source as a syntax tree: no hard-coded addresses, every environment read declared, no secret in a Next.js client bundle, every Next.js entry checks a permission.",
+  "license": "Apache-2.0",
+  "author": "Ploutos Services",
+  "type": "module",
+  "bin": {
+    "source-gates": "bin/source-gates.mjs"
+  },
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./src/index.mjs"
+    }
+  },
+  "types": "./index.d.ts",
+  "files": [
+    "bin",
+    "src",
+    "index.d.ts",
+    "LICENSE",
+    "NOTICE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.17"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\"",
+    "check-addresses": "node bin/source-gates.mjs addresses"
+  },
+  "dependencies": {
+    "typescript": "7.0.2"
+  },
+  "keywords": [
+    "lint",
+    "gate",
+    "ci",
+    "nextjs",
+    "rbac",
+    "secrets",
+    "environment",
+    "hardcoded-urls",
+    "typescript"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ploutosservices/source-gates.git"
+  }
+}

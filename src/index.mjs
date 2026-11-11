@@ -1,0 +1,8 @@
+// The library: the functions the four commands are built from, for a project's own scripts.
+export { parseSources, is, SyntaxKind, isStringLiteralLike, ParseError } from './parse.mjs'
+export { filesUnder, fileSet, skipCommon, isSourceFile, SOURCE_FILE, DEFAULT_TEST_FILE } from './files.mjs'
+export { hitsInText, hitsInFiles, urlsInFiles, judgeAddresses, pyStrings, pyHits, pyAndTextUrls, isReservedHost } from './addresses.mjs'
+export { codeVars, codeVarsOfFiles, isRequired, judgeEnv, DEFAULT_IGNORE } from './env.mjs'
+export { bundleVerdicts, readEnvFile, defaultChunksDir, MIN_SECRET_LEN } from './bundle-secrets.mjs'
+export { accessVerdicts, accessFiles, defaultAppDir } from './access.mjs'
+export { loadConfig, CONFIG_FILE } from './config.mjs'
